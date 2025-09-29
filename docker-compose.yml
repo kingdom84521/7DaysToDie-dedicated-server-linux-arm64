@@ -1,0 +1,15 @@
+services:
+  7daystodie:
+    container_name: 7dtd_server
+    build: .
+    ports:
+        - "26900:26900/tcp"
+        - "26900:26900/udp"
+        - "26901:26901/udp"
+        - "26902:26902/udp"
+        - "26903:26903/udp"
+    volumes:
+        - ./scripts/entrypoint.sh:/home/steam/start_7dtd_server.sh
+        - ./Saves:/home/steam/.local/share/7DaysToDie/Saves
+        - ./serverconfig.xml:/home/steam/Steam/servers/7DaysToDie/serverconfig.xml
+    entrypoint: "/home/steam/start_7dtd_server.sh"
