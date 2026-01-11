@@ -1,5 +1,8 @@
 # Game saves (mounted as volume, don't track in git)
 Saves/
 
+# Actual server config (use serverconfig.xml.template as base)
+serverconfig.xml
+
 # Logs
 *.log
