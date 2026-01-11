@@ -7,9 +7,16 @@ INSTALL_MARKER="${STEAM_DIR}/.installed"
 FEX_ROOTFS_DIR="/home/steam/.fex-emu/RootFS"
 CUSTOM_CONFIG="/home/steam/serverconfig.xml.custom"
 
-# First run: setup FEX RootFS, SteamCMD, and 7DTD
-if [ ! -f "$INSTALL_MARKER" ]; then
-    echo "=== First run detected, installing... ==="
+# Check if update is forced via environment variable
+FORCE_UPDATE="${FORCE_UPDATE:-false}"
+
+# First run or forced update: setup FEX RootFS, SteamCMD, and 7DTD
+if [ ! -f "$INSTALL_MARKER" ] || [ "$FORCE_UPDATE" = "true" ]; then
+    if [ "$FORCE_UPDATE" = "true" ]; then
+        echo "=== Forced update requested ==="
+    else
+        echo "=== First run detected, installing... ==="
+    fi
 
     # Setup FEX RootFS (only if not already present)
     if [ ! -d "$FEX_ROOTFS_DIR/Ubuntu_22_04" ] && [ ! -f "$FEX_ROOTFS_DIR/Ubuntu_22_04.sqsh" ]; then

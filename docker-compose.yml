@@ -4,6 +4,10 @@ services:
     build: .
     # Ports are handled by Caddy L4 proxy
     # Connect via: 7dtd.mysterybubble.eu.org:26900
+    environment:
+      # Set to "true" to force game update on next restart
+      # Usage: FORCE_UPDATE=true docker compose up -d
+      - FORCE_UPDATE=${FORCE_UPDATE:-false}
     volumes:
       # Entrypoint script
       - ./scripts/entrypoint.sh:/home/steam/start_7dtd_server.sh:ro
