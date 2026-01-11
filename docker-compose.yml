@@ -2,14 +2,31 @@ services:
   7daystodie:
     container_name: 7dtd_server
     build: .
-    ports:
-        - "26900:26900/tcp"
-        - "26900:26900/udp"
-        - "26901:26901/udp"
-        - "26902:26902/udp"
-        - "26903:26903/udp"
+    # Ports are handled by Caddy L4 proxy
+    # Connect via: 7dtd.mysterybubble.eu.org:26900
     volumes:
-        - ./scripts/entrypoint.sh:/home/steam/start_7dtd_server.sh
-        - ./Saves:/home/steam/.local/share/7DaysToDie/Saves
-        - ./serverconfig.xml:/home/steam/Steam/servers/7DaysToDie/serverconfig.xml
-    entrypoint: "/home/steam/start_7dtd_server.sh"
+      # Entrypoint script
+      - ./scripts/entrypoint.sh:/home/steam/start_7dtd_server.sh:ro
+      # Game saves
+      - ./Saves:/home/steam/.local/share/7DaysToDie/Saves
+      # Server config (mounted to temp location, copied at startup)
+      - ./serverconfig.xml:/home/steam/serverconfig.xml.custom:ro
+      # Persist game installation (avoid re-download on restart)
+      - 7dtd_steam:/home/steam/Steam
+      - 7dtd_fex:/home/steam/.fex-emu
+    devices:
+      - /dev/fuse:/dev/fuse
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    networks:
+      - caddy_network
+
+volumes:
+  7dtd_steam:
+  7dtd_fex:
+
+networks:
+  caddy_network:
+    external: true

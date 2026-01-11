@@ -1,0 +1,5 @@
+# Game saves (mounted as volume, don't track in git)
+Saves/
+
+# Logs
+*.log

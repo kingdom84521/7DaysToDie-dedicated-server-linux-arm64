@@ -1,11 +1,12 @@
-FROM ubuntu:22.04
+# =============================================================================
+# Stage 1: Build FEX-Emu
+# =============================================================================
+FROM ubuntu:22.04 AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
-
 ENV CMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu/cmake/Qt5
 
-RUN apt-get update && \
-    apt-get install -y \
+RUN apt-get update && apt-get install -y \
     git \
     cmake \
     ninja-build \
@@ -14,7 +15,6 @@ RUN apt-get update && \
     clang \
     llvm \
     lld \
-    binfmt-support \
     libsdl2-dev \
     libepoxy-dev \
     libssl-dev \
@@ -27,58 +27,65 @@ RUN apt-get update && \
     libstdc++-10-dev-arm64-cross \
     squashfs-tools \
     squashfuse \
-    libc-bin \
-    expect \
-    curl \
-    sudo \
-    fuse \
-    qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools \
-    qtdeclarative5-dev qml-module-qtquick2 \
-    binfmt-support
+    qtbase5-dev \
+    qtchooser \
+    qt5-qmake \
+    qtbase5-dev-tools \
+    qtdeclarative5-dev \
+    qml-module-qtquick2 \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN useradd -m -s /bin/bash fex && \
-    usermod -aG sudo fex && \
-    echo "fex ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers.d/fex
-
-USER fex
-
-WORKDIR /home/fex
-
+WORKDIR /build
 
 RUN git clone --recurse-submodules https://github.com/FEX-Emu/FEX.git && \
     cd FEX && \
     mkdir Build && \
     cd Build && \
     CC=clang CXX=clang++ cmake \
-    -DCMAKE_INSTALL_PREFIX=/usr \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DUSE_LINKER=lld \
-    -DENABLE_LTO=True \
-    -DBUILD_TESTS=False \
-    -DENABLE_ASSERTIONS=False \
-    -G Ninja .. && \
-    ninja
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DUSE_LINKER=lld \
+        -DENABLE_LTO=True \
+        -DBUILD_TESTS=False \
+        -DENABLE_ASSERTIONS=False \
+        -G Ninja .. && \
+    ninja && \
+    DESTDIR=/fex-install ninja install
 
-WORKDIR /home/fex/FEX/Build
+# =============================================================================
+# Stage 2: Runtime
+# =============================================================================
+FROM ubuntu:22.04
 
-RUN sudo ninja install && \
-    sudo update-binfmts --enable
+ENV DEBIAN_FRONTEND=noninteractive
 
-RUN sudo useradd -m -s /bin/bash steam && \
-    sudo apt-get update && \
-    sudo apt-get install -y wget
+# Install only runtime dependencies
+RUN apt-get update && apt-get install -y \
+    libsdl2-2.0-0 \
+    libepoxy0 \
+    libssl3 \
+    squashfuse \
+    squashfs-tools \
+    fuse \
+    curl \
+    ca-certificates \
+    binfmt-support \
+    && rm -rf /var/lib/apt/lists/*
 
-USER root
+# Copy FEX binaries from builder
+COPY --from=builder /fex-install/usr /usr
 
-RUN echo 'root:steamcmd' | chpasswd
+# Create steam user with UID 1001 to match host user for volume permissions
+RUN useradd -m -s /bin/bash -u 1001 steam && \
+    mkdir -p /home/steam/.local/share/7DaysToDie/Saves && \
+    mkdir -p /home/steam/Steam/servers/7DaysToDie && \
+    mkdir -p /home/steam/.fex-emu && \
+    chown -R steam:steam /home/steam
 
 USER steam
+WORKDIR /home/steam
 
-RUN FEXRootFSFetcher --distro-name=ubuntu --distro-version=22.04 --extract -y
+# Note: FEX RootFS and SteamCMD/7DTD will be installed at first run
+# This avoids needing FUSE during build
 
-WORKDIR /home/steam/Steam
-
-RUN curl -sqL "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz" | tar zxvf - && \
-    FEXBash -c './steamcmd.sh +force_install_dir "/home/steam/Steam/servers/7DaysToDie" +login anonymous +app_update 294420 -validate +quit'
-
-USER root
+ENTRYPOINT ["/home/steam/start_7dtd_server.sh"]
